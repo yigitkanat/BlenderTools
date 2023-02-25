@@ -2,6 +2,7 @@ import bpy
 import os
 import math
 
+
 class MyAddonOperator(bpy.types.Operator):
     bl_idname = "myaddon.my_operator"
     bl_label = "My Operator"
