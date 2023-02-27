@@ -2,60 +2,41 @@ import bpy
 import os
 import math
 
-class MyAddonOperator(bpy.types.Operator):
-    bl_idname = "myaddon.my_operator"
-    bl_label = "My Operator"
+bl_info = {
+    "name": "Circle Renderer",
+    "description": "Render 8 angle of selected objects with the setup that include in folder",
+    "author": "yigitkanat",
+    "version": (0, 0, 1),
+    "blender": (3, 4, 1),
+    "location": "3D View > Circle Renderer",
+    "category": "Development"
+}
 
-    filepath: bpy.props.StringProperty(subtype="FILE_PATH")
-
-    def execute(self, context):
-        # Do something with the selected file path
-        print(self.filepath)
-        return {'FINISHED'}
-
-    def invoke(self, context, event):
-        context.window_manager.fileselect_add(self)
-        return {'RUNNING_MODAL'}
-
-
-class MyAddonPanel(bpy.types.Panel):
-    bl_idname = "OBJECT_PT_myaddon_panel"
-    bl_label = "My Addon Panel"
-    bl_space_type = "PROPERTIES"
-    bl_region_type = "WINDOW"
-    bl_context = "scene"
-
-    def draw(self, context):
-        layout = self.layout
-        row = layout.row()
-        row.operator("myaddon.my_operator", text="Select File")
-
-def register():
-    bpy.utils.register_class(MyAddonPanel)
+from bpy.props import (StringProperty,
+                       IntProperty,
+                       PointerProperty,
+                       )
+from bpy.types import (Panel,
+                       Menu,
+                       Operator,
+                       PropertyGroup,
+                       )
 
 
-def unregister():
-    bpy.utils.unregister_class(MyAddonPanel)
-
-if __name__ == "__main__":
-    register()
-
-def render8directions_selected_objects(path):
+def render8directions_selected_objects(path, res, action):
     # path fixing
     path = os.path.abspath(path)
 
     # get list of selected objects
     selected_list = bpy.context.selected_objects
 
-
     # deselect all in scene
     bpy.ops.object.select_all(action='TOGGLE')
 
-
     s = bpy.context.scene
 
-    s.render.resolution_x = 256  # set to whatever you want!
-    s.render.resolution_y = 256
+    s.render.resolution_x = res  # set to whatever you want!
+    s.render.resolution_y = res
 
     # I left this in as in some of my models, I needed to translate the "root" object but
     # the animations were on the armature which I selected.
@@ -79,11 +60,7 @@ def render8directions_selected_objects(path):
             scn.frame_end = int(bpy.context.active_object.animation_data.action.frame_range[1])
 
             # set which actions you want to render.  Make sure to use the exact name of the action!
-            if (
-                    #                 a.name == "idle"
-                    a.name == "run"
-                    #                 or a.name == "dying"
-            ):
+            if (a.name == action):
 
                 # create folder for animation
                 action_folder = os.path.join(path, a.name)
@@ -155,4 +132,94 @@ def render8directions_selected_objects(path):
                             )
 
 
-render8directions_selected_objects('C:\\RenderResult\\Character1')
+
+class RenderProperties(PropertyGroup):
+    my_int: IntProperty(
+        name="Resolution",
+        description="Resolution",
+        default=512,
+        min=10,
+        max=9999
+    )
+
+    my_path: StringProperty(
+        name="Output Directory",
+        description="Choose a output directory:",
+        default="",
+        maxlen=1024,
+        subtype='DIR_PATH'
+    )
+
+    my_action: StringProperty(
+        name="Action Name",
+        description="Name of the export action",
+        default="run",
+        maxlen=1024,
+    )
+
+class WM_OT_Export(Operator):
+    bl_label = "Export"
+    bl_idname = "wm.export"
+
+    def execute(self, context):
+        scene = context.scene
+        mytool = scene.my_tool
+        render8directions_selected_objects(mytool.my_path,mytool.my_int,mytool.my_action)
+        return {'FINISHED'}
+
+class OBJECT_PT_CustomPanel(Panel):
+    bl_label = "Circle Renderer"
+    bl_idname = "OBJECT_PT_custom_panel"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = "Circle Renderer"
+    bl_context = "objectmode"
+
+    @classmethod
+    def poll(self, context):
+        return context.object is not None
+
+    def draw(self, context):
+        layout = self.layout
+        scene = context.scene
+        mytool = scene.my_tool
+
+        layout.prop(mytool, "my_action")
+        layout.prop(mytool, "my_int")
+        layout.prop(mytool, "my_path")
+
+        layout.operator("wm.export")
+
+        layout.separator()
+
+
+# ------------------------------------------------------------------------
+#    Registration
+# ------------------------------------------------------------------------
+
+classes = (
+    RenderProperties,
+    WM_OT_Export,
+    OBJECT_PT_CustomPanel
+)
+
+
+def register():
+    from bpy.utils import register_class
+    for cls in classes:
+        register_class(cls)
+
+    bpy.types.Scene.my_tool = PointerProperty(type=RenderProperties)
+
+
+def unregister():
+    from bpy.utils import unregister_class
+    for cls in reversed(classes):
+        unregister_class(cls)
+    del bpy.types.Scene.my_tool
+
+
+if __name__ == "__main__":
+    register()
+
+
