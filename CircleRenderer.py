@@ -112,7 +112,7 @@ def render8directions_selected_objects(path, res, action):
 
                         # loop through and render frames.  Can set how "often" it renders.
                         # Every frame is likely not needed.  Currently set to 2 (every other).
-                        for i in range(s.frame_start, s.frame_end, 1):
+                        for i in range(s.frame_start, s.frame_end, s.frame_step):
                             s.frame_current = i
 
                             s.render.filepath = (
